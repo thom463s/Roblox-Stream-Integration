@@ -1,5 +1,6 @@
 // Dependencies
 const express = require('express')
+const crypto = require('crypto')
 const https = require('https')
 const tmi = require('tmi.js')
 
@@ -71,50 +72,30 @@ class Session {
             const user_id = tags['user-id']
             const vote = parseInt(message)
 
-            if (vote > 0 && vote <= amount) {
-                if (this.votes[vote - 1][user_id] != null) return
-                this.votes[vote - 1][user_id] = true
+            if ((vote > 0 && vote <= amount) && (!this.voters.includes(user_id))) {
+                this.voters.push(user_id)
+                this.votes[vote - 1] += 1
             }
         })
-
-        this.votes = []
-        for (let i = 0; i < amount; i++) {
-            this.votes[i] = {}
-        }
-
+        
+        this.votes = new Array(amount).fill(0)
         this.amount = amount
+        this.voters = []
         this.started = true
     }
 
     getVotes() {
-        let result = new Array(this.amount)
-        result.fill(0)
-
-        if (this.started == true) {
-            for (let i = 0; i < this.amount; i++) {
-                const votes = Object.keys(this.votes[i]).length
-                result[i] = votes
-            }
+        if (!this.started) {
+            const empty = new Array(this.amount).fill(0)
+            return JSON.stringify(result)
         }
-        
-        return JSON.stringify(result)
+
+        return JSON.stringify(this.votes)
     }
 
     disconnect() {
         this.session.disconnect()
         this.started = false
-    }
-}
-
-// Functions
-function generate_id() {
-    while (true) {
-        const id = "id" + Math.random().toString(16).slice()
-        const entry = storage.getValue(id)
-
-        if (entry == null) {
-            return id
-        }
     }
 }
 
@@ -128,9 +109,9 @@ app.get('/poll', (req, res) => {
     const session = new Session(channel_name)
     session.startPoll(amount)
 
-    const uid = generate_id()
-    storage.setValue(uid, session, EXPIRY_TIME, (value) => {
-        value.disconnect()
+    const uid = crypto.randomUUID()
+    storage.setValue(uid, session, EXPIRY_TIME, () => {
+        session.disconnect()
     })
 
     res.send(uid)
@@ -141,7 +122,8 @@ app.get('/poll/votes', (req, res) => {
     const session = storage.getValue(uid)
 
     if (session == null) {
-        res.send(null)
+        const empty = JSON.stringify([])
+        res.send(empty)
     } else {
         const votes = session.getVotes()
         res.send(votes)
