@@ -1,6 +1,6 @@
 // Dependencies
 const express = require('express')
-const crypto = require('crypto')
+const crypto = require('crypto-js')
 const https = require('https')
 const tmi = require('tmi.js')
 
