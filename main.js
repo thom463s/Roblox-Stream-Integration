@@ -1,6 +1,5 @@
 // Dependencies
 const express = require('express')
-const crypto = require('crypto-js')
 const https = require('https')
 const tmi = require('tmi.js')
 
@@ -43,6 +42,11 @@ const storage = (() => {
     }
 })()
 
+// Functions
+function createEmptyArray(amount, fill) {
+    return Array.from({length: amount}, () => fill)
+}
+
 // Classes
 class Session {
     constructor(channel_name) {
@@ -51,6 +55,7 @@ class Session {
         this.started = false
         this.session = null
         this.amount = null
+        this.voters = null
         this.votes = null
     }
 
@@ -65,7 +70,7 @@ class Session {
             channels: [this.channel_name]
         })
         this.session.connect()
-        
+
         this.session.on('message', (channel, tags, message, self) => {
             if (self) return
 
@@ -78,7 +83,7 @@ class Session {
             }
         })
         
-        this.votes = new Array(amount).fill(0)
+        this.votes = createEmptyArray(amount, 0)
         this.amount = amount
         this.voters = []
         this.started = true
@@ -86,10 +91,10 @@ class Session {
 
     getVotes() {
         if (!this.started) {
-            const empty = new Array(this.amount).fill(0)
-            return JSON.stringify(result)
+            const empty = createEmptyArray(this.amount, 0)
+            return JSON.stringify(empty)
         }
-
+        
         return JSON.stringify(this.votes)
     }
 
@@ -105,7 +110,7 @@ const app = express()
 app.get('/poll', (req, res) => {
     const channel_name = req.query.channel_name
     const amount = req.query.amount
-    
+
     const session = new Session(channel_name)
     session.startPoll(amount)
 
@@ -133,6 +138,7 @@ app.get('/poll/votes', (req, res) => {
 app.get('/poll/disconnect', (req, res) => {
     const uid = req.query.uid
     storage.removeValue(uid)
+    res.send(true)
 })
 
 app.listen(3000, () => {
